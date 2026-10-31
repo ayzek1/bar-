@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Bar haritam · OpenStreetMap</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef0f6;--panel:#fff;--ink:#1c1a2e;--muted:#6b6880;--line:#d9dbe8;--star:#e8a008;--on:#fff;--c-b:#c2255c;--c-s:#0b8f8c;--c-k:#5f3dc4;--c-kd:#d9480f;--c-u:#2b8a3e;--shadow:0 6px 22px rgba(28,26,46,.2)}
+.leaflet-tile-pane{filter:saturate(25%) contrast(95%) brightness(103%)}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1220;--panel:#181c32;--ink:#f1eefa;--muted:#9d9bb8;--line:#2a2f52;--star:#ffbe3b;--on:#10121f;--c-b:#ff5d93;--c-s:#2ed3cb;--c-k:#9b86ff;--c-kd:#ff8787;--c-u:#51cf66;--shadow:0 6px 26px rgba(0,0,0,.55)}
+  .leaflet-tile-pane{filter:invert(100%) hue-rotate(180deg) saturate(30%) brightness(92%) contrast(90%)}
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 4px}
+h1{margin:0;font:700 24px/1.05 "Bricolage Grotesque",system-ui,sans-serif;letter-spacing:-.02em}
+#rf{border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline}
+#top-bar{display:flex;flex-direction:column;gap:8px;padding:6px 16px 10px}
+#s-wrap{position:relative}
+#q{width:100%;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;padding:9px 12px;font:14px system-ui,sans-serif}
+#s-res{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:220px;overflow-y:auto;z-index:2000}
+.sr-item{display:flex;flex-direction:column;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:9px 12px}
+.sr-item:last-child{border-bottom:0}
+.sr-item b{font-size:14px}
+.sr-item span{font-size:12px;color:var(--muted)}
+#chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.chip{flex:none;display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;font-weight:600;font-size:13px}
+.chip i{width:10px;height:10px;border-radius:50%}
+.chip b{font-weight:600;font-size:12px;color:var(--muted)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.on b{color:inherit;opacity:.7}
+#wrap{position:relative;isolation:isolate;flex:1;min-height:0;margin:0 12px;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
+#map{position:absolute;inset:0;font:inherit;background:var(--bg)}
+.leaflet-control-attribution{font-size:10px}
+#ban{position:absolute;left:10px;right:56px;top:10px;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 12px;font-weight:600;font-size:13px;box-shadow:var(--shadow);z-index:1000}
+#toast{position:absolute;left:50%;top:56px;transform:translate(-50%,-8px);max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:14px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:1001;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+.pin{width:100%;height:100%;border-radius:50%;border:3px solid var(--c);background:var(--panel);display:grid;place-items:center;font:700 14px system-ui,sans-serif;color:var(--on);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.pin.on{background:var(--c)}
+nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}
+#nl{display:flex;flex-direction:column;align-items:flex-start;font-size:13px;color:var(--muted)}
+#rs{border:0;background:none;padding:0;text-decoration:underline;color:var(--muted);font-size:13px}
+#add{border:0;background:var(--ink);color:var(--bg);border-radius:999px;padding:12px 20px;font-weight:700;box-shadow:var(--shadow)}
+#sh{position:fixed;left:0;right:0;bottom:0;margin:0 auto;width:min(100%,560px);max-height:80%;overflow-y:auto;background:var(--panel);border-radius:22px 22px 0 0;box-shadow:0 -8px 32px rgba(0,0,0,.25);padding:8px 16px calc(16px + env(safe-area-inset-bottom,0px));transform:translateY(105%);visibility:hidden;transition:transform .25s,visibility .25s;z-index:5}
+#sh.open{transform:none;visibility:visible}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.where{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--muted)}
+.where i{width:10px;height:10px;border-radius:50%}
+.x{border:0;background:var(--bg);width:32px;height:32px;border-radius:50%}
+h2{margin:0;font:700 20px/1.2 "Bricolage Grotesque",system-ui,sans-serif}
+.ad{margin:2px 0 0;color:var(--muted);font-size:13px}
+#sh textarea,#sh input{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:11px 12px;font:16px system-ui,sans-serif;resize:none}
+#sh input{font-weight:600;margin-bottom:10px}
+.stars{display:flex;gap:6px;margin:12px 0}
+.stars button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:12px;font-size:24px;line-height:1;padding:9px 0;color:var(--line)}
+.stars button.on{color:var(--star);border-color:var(--star)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tg{border:1px solid var(--line);background:none;border-radius:999px;padding:6px 12px;font-size:13px}
+.tg.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.act{display:flex;gap:10px;margin-top:12px}
+.act button{flex:1;border-radius:12px;padding:13px;font-weight:700;border:1px solid var(--line);background:none}
+.act .pri{flex:2;background:var(--ink);color:var(--bg);border-color:var(--ink)}
+</style>
+</head>
+<body>
+<header><h1>Bar haritam</h1><button id="rf">↻ Yenile</button></header>
+<div id="top-bar">
+  <div id="s-wrap">
+    <input id="q" type="search" placeholder="Bar veya mekan ara (haritada yoksa da bulur)…" autocomplete="off">
+    <div id="s-res" hidden></div>
+  </div>
+  <div id="chips"></div>
+</div>
+<div id="wrap">
+  <div id="map"></div>
+  <div id="ban" hidden>Eklemek istediğin barın yerine dokun</div>
+  <div id="toast"></div>
+</div>
+<nav>
+  <div id="nl"><span id="sub"></span><button id="rs" hidden></button></div>
+  <button id="add">＋ Bar ekle</button>
+</nav>
+<div id="sh" role="dialog" aria-label="Bar puanı"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const rd=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const D={b:'Beyoğlu',s:'Şişli',k:'Beşiktaş',kd:'Kadıköy',u:'Üsküdar'},DC={b:'var(--c-b)',s:'var(--c-s)',k:'var(--c-k)',kd:'var(--c-kd)',u:'var(--c-u)'};
+const TAGS=['Kokteyl','Pub','Meyhane','Şarap','Rooftop','Canlı müzik'];
+const EP=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+let U=rd('osm-user',{r:{},h:[],a:[]}),places=[],flt='all',addMode=false,cur=null,tt,dm,st;
+const sh=$('#sh'),qIn=$('#q'),sRes=$('#s-res');
+const map=L.map('map',{zoomControl:false,minZoom:11,maxZoom:19,maxBounds:[[40.85,28.80],[41.20,29.30]]}).fitBounds([[40.98,28.90],[41.08,29.08]]);
+L.control.zoom({position:'topright'}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri, OpenStreetMap katkıcıları'}).addTo(map);
+const layer=L.layerGroup().addTo(map);
+function toast(m,ms=2600){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);if(ms)tt=setTimeout(()=>t.classList.remove('on'),ms)}
+const all=()=>{const hid=new Set(U.h);return places.concat(U.a).filter(p=>!hid.has(p.id))};
+async function ovp(q){for(const u of EP){try{const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});if(r.ok)return(await r.json()).elements||[]}catch(e){}}return null}
+async function district(d){
+  for(const lv of ['["admin_level"="6"]','']){
+    const q=`[out:json][timeout:50];area["boundary"="administrative"]${lv}["name"="${D[d]}"]->.a;(
+      nwr["amenity"~"^(bar|pub|biergarten|nightclub)$"]["name"](area.a);
+      nwr["amenity"~"^(restaurant|cafe)$"]["name"~"(Bar|Pub|Meyhane|Bira|Taproom|Şarap|Wine|Cocktail|Kokteyl|Tavern|Gastro|Lounge|Club|Rooftop)",i](area.a);
+      nwr["amenity"~"^(restaurant|cafe)$"]["alcohol"="yes"]["name"](area.a);
+      nwr["amenity"~"^(restaurant|cafe)$"]["drink:beer"="yes"]["name"](area.a);
+      nwr["amenity"~"^(restaurant|cafe)$"]["drink:wine"="yes"]["name"](area.a);
+    );out center tags;`;
+    const els=await ovp(q);
+    if(els===null)return null;
+    if(els.length)return els.filter(e=>(e.lat!=null||e.center)).map(e=>({id:e.type[0]+e.id,name:e.tags.name,lat:e.lat!=null?e.lat:e.center.lat,lng:e.lon!=null?e.lon:e.center.lon,d,addr:[[e.tags['addr:street'],e.tags['addr:housenumber']].filter(Boolean).join(' '),e.tags['addr:suburb']||e.tags['addr:neighbourhood']].filter(Boolean).join(', ')}))}
+  return[]}
+async function load(force){
+  const c=rd('osm-cache-v3',null);
+  if(!force&&c&&Date.now()-c.t<6048e5){places=c.p;return}
+  toast('Beyoğlu, Şişli, Beşiktaş, Kadıköy ve Üsküdar mekanları taranıyor…',0);
+  const out=[];let fail=0;
+  for(const d of['b','s','k','kd','u']){const r=await district(d);if(r===null)fail++;else out.push(...r)}
+  if(fail===5){toast('Mekanlar alınamadı. İnternet bağlantını kontrol edip ↻ Yenile’ye bas',6000);return}
+  places=[...new Map(out.map(p=>[p.id,p])).values()];
+  if(!fail)wr('osm-cache-v3',{t:Date.now(),p:places});
+  toast(fail?`${places.length} mekan yüklendi, bazı ilçeler alınamadı.`:`${places.length} mekan yüklendi`,4000)}
+function render(){
+  const l=all(),vis=l.filter(p=>flt==='all'||p.d===flt);
+  layer.clearLayers();
+  for(const p of vis){
+    const u=U.r[p.id],s=u?30:18;
+    L.marker([p.lat,p.lng],{title:p.name,zIndexOffset:u?500:0,icon:L.divIcon({className:'',iconSize:[s,s],iconAnchor:[s/2,s/2],html:`<div class="pin${u?' on':''}" style="--c:${DC[p.d]}">${u?u.r:''}</div>`})}).on('click',()=>openSheet(p.id)).addTo(layer)}
+  $('#chips').innerHTML=[['all','Tümü'],['b','Beyoğlu'],['s','Şişli'],['k','Beşiktaş'],['kd','Kadıköy'],['u','Üsküdar']].map(([k,n])=>`<button class="chip${flt===k?' on':''}" data-f="${k}">${k==='all'?'':`<i style="background:${DC[k]}"></i>`}${n}<b>${k==='all'?l.length:l.filter(p=>p.d===k).length}</b></button>`).join('');
+  const rated=l.filter(p=>U.r[p.id]),avg=rated.length?(rated.reduce((s,p)=>s+U.r[p.id].r,0)/rated.length).toFixed(1).replace('.',','):'';
+  $('#sub').textContent=`${l.length} mekan · ${rated.length} puanladın${avg?' · ort. '+avg+' ★':''}`;
+  const rs=$('#rs');rs.hidden=!U.h.length;rs.textContent=`Silinenler (${U.h.length})`}
+function nearest(la,lo){let b='b',bd=1e9;for(const p of all()){const d=Math.hypot(p.lat-la,(p.lng-lo)*.75);if(d<bd){bd=d;b=p.d}}return b}
+function openSheet(id,nw){
+  let p,u={};
+  if(nw){p=nw;cur={isNew:true,lat:nw.lat,lng:nw.lng,d:nw.d,r:0,tag:''}}
+  else{p=all().find(x=>x.id===id);if(!p)return;u=U.r[id]||{};cur={id,r:u.r||0,tag:u.tag||''}}
+  sh.innerHTML=`<div class="grab"></div><div class="top"><div class="where">${cur.isNew?'Yeni mekan':`<i style="background:${DC[p.d]}"></i>${D[p.d]}`}</div><button class="x" id="cx" aria-label="Kapat">✕</button></div>
+  ${cur.isNew?`<input id="nm" maxlength="60" placeholder="Barın adı" value="${esc(nw.name||'')}" autocomplete="off"><div class="tags" id="dc">${['b','s','k','kd','u'].map(k=>`<button class="tg${cur.d===k?' on':''}" data-d="${k}">${D[k]}</button>`).join('')}</div>`:`<h2>${esc(p.name)}</h2><p class="ad">${esc(p.addr||'')}</p>`}
+  <div class="stars" id="st">${[1,2,3,4,5].map(i=>`<button data-v="${i}" class="${i<=cur.r?'on':''}" aria-label="${i} yıldız">★</button>`).join('')}</div>
+  <div class="tags" id="tg">${TAGS.map(t=>`<button class="tg${cur.tag===t?' on':''}">${t}</button>`).join('')}</div>
+  <textarea id="nt" rows="2" maxlength="300" placeholder="Not: ne içtin, ortam nasıldı?">${esc(u.note||'')}</textarea>
+  <div class="act">${cur.isNew?'':'<button id="dl">Sil</button>'}<button id="sv" class="pri">Kaydet</button></div>`;
+  sh.classList.add('open');map.setView([p.lat,p.lng],Math.max(map.getZoom(),16))}
+function closeSheet(){sh.classList.remove('open');if(dm){dm.remove();dm=null}const was=cur&&cur.isNew;cur=null;if(was)setAdd(false)}
+sh.addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t||!cur)return;
+  if(t.id==='cx'){closeSheet();return}
+  if(t.dataset.v){const v=+t.dataset.v;cur.r=cur.r===v?0:v;[...$('#st').children].forEach((c,i)=>c.classList.toggle('on',i<cur.r));return}
+  if(t.dataset.d){cur.d=t.dataset.d;[...$('#dc').children].forEach(c=>c.classList.toggle('on',c.dataset.d===cur.d));return}
+  if(t.classList.contains('tg')){cur.tag=cur.tag===t.textContent?'':t.textContent;[...$('#tg').children].forEach(c=>c.classList.toggle('on',c.textContent===cur.tag));return}
+  if(t.id==='dl'){
+    if(!t.dataset.s){t.dataset.s=1;t.textContent='Emin misin?';return}
+    const id=cur.id;if(id[0]==='c')U.a=U.a.filter(x=>x.id!==id);else U.h.push(id);
+    delete U.r[id];wr('osm-user',U);closeSheet();render();toast('Silindi. “Silinenler”den geri getirebilirsin');return}
+  if(t.id==='sv'){
+    let id=cur.id;
+    if(cur.isNew){
+      const name=$('#nm').value.trim();if(!name){toast('Barın adını yaz');$('#nm').focus();return}
+      id='c'+Date.now().toString(36);U.a.push({id,name,lat:cur.lat,lng:cur.lng,d:cur.d,addr:''})}
+    if(cur.r)U.r[id]={r:cur.r,tag:cur.tag,note:$('#nt').value.trim()};else delete U.r[id];
+    wr('osm-user',U);sh.classList.remove('open');if(dm){dm.remove();dm=null}cur=null;setAdd(false);render();toast('Kaydedildi')}
+});
+function setAdd(on){addMode=on;$('#ban').hidden=!on;$('#add').textContent=on?'Vazgeç':'＋ Bar ekle';if(on&&cur)closeSheet()}
+map.on('click',e=>{
+  sRes.hidden=true;
+  if(!addMode){if(cur)closeSheet();return}
+  const{lat,lng}=e.latlng;
+  if(lat<40.85||lat>41.20||lng<28.80||lng>29.30){toast('Seçilen konum İstanbul sınırları dışında');return}
+  if(dm)dm.remove();dm=L.circleMarker([lat,lng],{radius:10,weight:3,color:'#1c1a2e',fillColor:'#fff',fillOpacity:1,dashArray:'4 3'}).addTo(map);
+  if(cur&&cur.isNew){cur.lat=lat;cur.lng=lng;return}
+  openSheet(null,{lat,lng,d:nearest(lat,lng)})});
+qIn.addEventListener('input',()=>{
+  const val=qIn.value.trim();
+  clearTimeout(st);
+  if(val.length<2){sRes.hidden=true;return}
+  const loc=all().filter(p=>p.name.toLocaleLowerCase('tr').includes(val.toLocaleLowerCase('tr'))).slice(0,5);
+  st=setTimeout(async()=>{
+    let ext=[];
+    try{
+      const r=await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(val+' İstanbul')}&lat=41.01&lon=29.00&limit=5`);
+      if(r.ok){
+        const j=await r.json();
+        ext=(j.features||[]).filter(f=>{
+          const [lo,la]=f.geometry.coordinates;
+          return la>=40.85&&la<=41.20&&lo>=28.80&&lo<=29.30&&f.properties.name;
+        }).map(f=>({name:f.properties.name,addr:[f.properties.street,f.properties.district].filter(Boolean).join(', '),lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0]}));
+      }
+    }catch(e){}
+    const html=[
+      ...loc.map(p=>`<button class="sr-item" data-id="${p.id}"><b>${esc(p.name)}</b><span>Haritada mevcut · ${D[p.d]}</span></button>`),
+      ...ext.filter(x=>!loc.some(l=>l.name.toLocaleLowerCase('tr')===x.name.toLocaleLowerCase('tr'))).map(x=>`<button class="sr-item" data-lat="${x.lat}" data-lng="${x.lng}" data-nm="${esc(x.name)}"><b>＋ ${esc(x.name)}</b><span>${esc(x.addr||'Yeni mekan olarak ekle')}</span></button>`)
+    ].join('');
+    sRes.innerHTML=html||`<div class="sr-item"><span>Sonuç bulunamadı, "＋ Bar ekle" ile haritadan seçebilirsin.</span></div>`;
+    sRes.hidden=false;
+  },300);
+});
+sRes.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  sRes.hidden=true;qIn.value='';
+  if(b.dataset.id){openSheet(b.dataset.id);return}
+  const lat=+b.dataset.lat,lng=+b.dataset.lng,name=b.dataset.nm;
+  if(dm)dm.remove();dm=L.circleMarker([lat,lng],{radius:10,weight:3,color:'#1c1a2e',fillColor:'#fff',fillOpacity:1,dashArray:'4 3'}).addTo(map);
+  openSheet(null,{lat,lng,d:nearest(lat,lng),name});
+});
+$('#add').onclick=()=>setAdd(!addMode);
+$('#chips').onclick=e=>{const b=e.target.closest('[data-f]');if(b){flt=b.dataset.f;render()}};
+$('#rs').onclick=e=>{const b=e.currentTarget;if(b.dataset.s){delete b.dataset.s;U.h=[];wr('osm-user',U);render();return}b.dataset.s=1;b.textContent='Hepsini geri getir?';setTimeout(()=>{delete b.dataset.s;render()},3000)};
+$('#rf').onclick=async()=>{await load(true);render()};
+render();load(false).then(render);
+})();
+</script>
+</body>
+</html>
